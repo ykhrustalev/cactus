@@ -134,3 +134,24 @@ target_link_options(cactus PRIVATE -Wl,-z,max-page-size=16384)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# Build benchmark executable
+add_executable(
+    cactus-bench
+    ${CMAKE_SOURCE_DIR}/../cli/bench.cpp
+    ${CMAKE_SOURCE_DIR}/../tests/test_utils.cpp
+)
+
+target_include_directories(cactus-bench PRIVATE ${COMMON_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/../tests)
+
+target_link_libraries(cactus-bench cactus_static ${LOG_LIB} android)
+
+target_compile_definitions(cactus-bench PRIVATE ${COMMON_COMPILE_DEFINITIONS})
+
+target_compile_options(cactus-bench PRIVATE ${COMMON_COMPILE_OPTIONS})
+target_compile_options(cactus-bench PRIVATE ${OPTIMIZATION_OPTIONS})
+
+if (${ANDROID_ABI} STREQUAL "arm64-v8a")
+    target_compile_options(cactus-bench PRIVATE ${ARM_OPTIONS})
+    target_compile_definitions(cactus-bench PRIVATE ${ARM_DEFINITIONS})
+endif()
