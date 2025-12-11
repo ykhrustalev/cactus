@@ -133,9 +133,20 @@ namespace CactusThreading {
         
         size_t num_workers() const { return workers.size(); }
     };
-    
+
+    inline size_t& get_configured_thread_count() {
+        static size_t count = 0;  // 0 means use hardware_concurrency
+        return count;
+    }
+
+    inline void set_thread_count(size_t count) {
+        get_configured_thread_count() = count;
+    }
+
     inline ThreadPool& get_thread_pool() {
-        static ThreadPool pool;
+        static ThreadPool pool(get_configured_thread_count() > 0
+            ? get_configured_thread_count()
+            : std::thread::hardware_concurrency());
         return pool;
     }
     

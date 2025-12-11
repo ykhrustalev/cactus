@@ -1,4 +1,5 @@
 #include "../cactus/cactus.h"
+#include "../cactus/kernel/kernel_utils.h"
 #include "../tests/test_utils.h"
 #include <iostream>
 #include <string>
@@ -7,6 +8,7 @@
 #include <iomanip>
 #include <numeric>
 #include <cmath>
+#include <thread>
 
 using namespace cactus::engine;
 
@@ -63,10 +65,16 @@ double calculate_stddev(const std::vector<double>& values, double mean) {
 }
 
 void print_usage(const char* program) {
-    std::cerr << "Usage: " << program << " <model_path> --action <prefill|decode> --tokens <N> [--offset <N>] [--measurements <N>]\n\n";
-    std::cerr << "Examples:\n";
+    std::cerr << "Usage: " << program << " <model_path> --action <prefill|decode> --tokens <N> [options]\n\n";
+    std::cerr << "Options:\n";
+    std::cerr << "  --action <prefill|decode>  Benchmark action\n";
+    std::cerr << "  --tokens <N>               Number of tokens to process\n";
+    std::cerr << "  --offset <N>               Context size for decode (required for decode)\n";
+    std::cerr << "  --measurements <N>         Number of measurements (default: 3)\n";
+    std::cerr << "  -t <N>                     Number of threads (default: all cores)\n";
+    std::cerr << "\nExamples:\n";
     std::cerr << "  " << program << " weights/model --action prefill --tokens 512\n";
-    std::cerr << "  " << program << " weights/model --action decode --offset 128 --tokens 100\n";
+    std::cerr << "  " << program << " weights/model --action decode --offset 128 --tokens 100 -t 4\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -83,6 +91,7 @@ int main(int argc, char* argv[]) {
     int tokens = -1;
     int offset = -1;
     int measurements = 3;
+    int num_threads = 0;  // 0 = use all cores
 
     for (int i = 2; i < argc; i++) {
         std::string arg = argv[i];
@@ -90,12 +99,20 @@ int main(int argc, char* argv[]) {
         else if (arg == "--tokens" && i + 1 < argc) tokens = std::atoi(argv[++i]);
         else if (arg == "--offset" && i + 1 < argc) offset = std::atoi(argv[++i]);
         else if (arg == "--measurements" && i + 1 < argc) measurements = std::atoi(argv[++i]);
+        else if ((arg == "-t" || arg == "--threads") && i + 1 < argc) num_threads = std::atoi(argv[++i]);
         else {
             std::cerr << "Error: Unknown argument: " << arg << std::endl;
             print_usage(argv[0]);
             return 1;
         }
     }
+
+    // Configure thread count before any threading is used
+    if (num_threads > 0) {
+        CactusThreading::set_thread_count(num_threads);
+    }
+    size_t actual_threads = num_threads > 0 ? num_threads : std::thread::hardware_concurrency();
+    std::cerr << "Threads: " << actual_threads << std::endl;
 
     // Validate
     if (action != "prefill" && action != "decode") {
@@ -183,6 +200,7 @@ int main(int argc, char* argv[]) {
         std::cout << "avg_ts: " << std::fixed << std::setprecision(2) << tps << std::endl;
         std::cout << "stddev_ts: " << stdev_tps << std::endl;
         std::cout << "mem_mb: " << mem_peak_mb << std::endl;
+        std::cout << "threads: " << actual_threads << std::endl;
 
     } else { // decode
         std::cerr << "Offset: " << offset << " tokens" << std::endl;
@@ -224,6 +242,7 @@ int main(int argc, char* argv[]) {
         std::cout << "avg_ts: " << std::fixed << std::setprecision(2) << d_tps << std::endl;
         std::cout << "stddev_ts: " << d_stdev_tps << std::endl;
         std::cout << "mem_mb: " << mem_peak_mb << std::endl;
+        std::cout << "threads: " << actual_threads << std::endl;
     }
 
     return 0;
