@@ -136,6 +136,22 @@ int main(int argc, char* argv[]) {
     std::cerr << "Model: " << model_path << std::endl;
     std::cerr << "Action: " << action << std::endl;
 
+    // Warmup run to fault in mmap'd pages
+    std::cerr << "Warming up (faulting mmap pages)..." << std::endl;
+    {
+        auto warmup_tokens = create_token_sequence(action == "prefill" ? tokens : offset);
+        model->reset_cache();
+        model->generate(warmup_tokens, -1.0f, -1.0f, 0, "", true);
+        if (action == "decode") {
+            // Also warmup decode path
+            model->generate({10}, -1.0f, -1.0f, 0, "", false);
+        }
+        model->reset_cache();
+    }
+    size_t mem_after_warmup = EngineTestUtils::get_memory_footprint_bytes();
+    double mem_warmup_mb = (mem_after_warmup - mem_baseline) / (1024.0 * 1024.0);
+    std::cerr << "Memory after warmup: " << std::fixed << std::setprecision(2) << mem_warmup_mb << " MB" << std::endl;
+
     if (action == "prefill") {
         std::cerr << "Tokens: " << tokens << std::endl;
         std::cerr << "\nRunning prefill benchmark (" << measurements << " measurements)..." << std::endl;
