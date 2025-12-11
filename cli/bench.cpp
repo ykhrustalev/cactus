@@ -70,7 +70,7 @@ void print_usage(const char* program) {
 }
 
 int main(int argc, char* argv[]) {
-    std::cout.setf(std::ios::unitbuf);
+    std::cerr.setf(std::ios::unitbuf);
 
     if (argc < 2) {
         print_usage(argv[0]);
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Load model
-    std::cout << "Loading model..." << std::endl;
+    std::cerr << "Loading model..." << std::endl;
     auto model = create_model(model_path);
     if (!model || !model->init(model_path, 8192, "", false)) {
         std::cerr << "Error: Failed to load model" << std::endl;
@@ -126,47 +126,51 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << "Model: " << model_path << std::endl;
-    std::cout << "Action: " << action << std::endl;
+    std::cerr << "Model: " << model_path << std::endl;
+    std::cerr << "Action: " << action << std::endl;
 
     if (action == "prefill") {
-        std::cout << "Tokens: " << tokens << std::endl;
-        std::cout << "\nRunning prefill benchmark (" << measurements << " measurements)..." << std::endl;
+        std::cerr << "Tokens: " << tokens << std::endl;
+        std::cerr << "\nRunning prefill benchmark (" << measurements << " measurements)..." << std::endl;
 
         auto input = create_token_sequence(tokens);
         std::vector<double> times;
 
         for (int i = 0; i < measurements; i++) {
-            std::cout << "  [" << (i+1) << "/" << measurements << "] ";
+            std::cerr << "  [" << (i+1) << "/" << measurements << "] ";
             double ms = measure_prefill(model.get(), input);
             times.push_back(ms);
-            std::cout << ms << " ms" << std::endl;
+            std::cerr << ms << " ms" << std::endl;
         }
 
         double avg = calculate_mean(times);
         double stdev = calculate_stddev(times, avg);
         double tps = (tokens * 1000.0) / avg;
 
-        std::cout << "\nResults:" << std::endl;
-        std::cout << "  Avg: " << std::fixed << std::setprecision(2) << avg << " ms" << std::endl;
-        std::cout << "  StdDev: " << stdev << " ms" << std::endl;
-        std::cout << "  Throughput: " << tps << " tok/s" << std::endl;
+        std::cerr << "\nResults:" << std::endl;
+        std::cerr << "  Avg: " << std::fixed << std::setprecision(2) << avg << " ms" << std::endl;
+        std::cerr << "  StdDev: " << stdev << " ms" << std::endl;
+        std::cerr << "  Throughput: " << tps << " tok/s" << std::endl;
+
+        double stdev_tps = (tokens * 1000.0 * stdev) / (avg * avg);
+        std::cout << "avg_ts: " << std::fixed << std::setprecision(2) << tps << std::endl;
+        std::cout << "stddev_ts: " << stdev_tps << std::endl;
 
     } else { // decode
-        std::cout << "Offset: " << offset << " tokens" << std::endl;
-        std::cout << "Decode: " << tokens << " tokens" << std::endl;
-        std::cout << "\nRunning decode benchmark (" << measurements << " measurements)..." << std::endl;
+        std::cerr << "Offset: " << offset << " tokens" << std::endl;
+        std::cerr << "Decode: " << tokens << " tokens" << std::endl;
+        std::cerr << "\nRunning decode benchmark (" << measurements << " measurements)..." << std::endl;
 
         auto input = create_token_sequence(offset);
         uint32_t eos = tokenizer->get_eos_token();
         std::vector<double> prefill_times, decode_times;
 
         for (int i = 0; i < measurements; i++) {
-            std::cout << "  [" << (i+1) << "/" << measurements << "] ";
+            std::cerr << "  [" << (i+1) << "/" << measurements << "] ";
             auto [p_ms, d_ms] = measure_decode(model.get(), eos, input, tokens);
             prefill_times.push_back(p_ms);
             decode_times.push_back(d_ms);
-            std::cout << "prefill=" << std::fixed << std::setprecision(2) << p_ms
+            std::cerr << "prefill=" << std::fixed << std::setprecision(2) << p_ms
                       << " ms, decode=" << d_ms << " ms" << std::endl;
         }
 
@@ -178,11 +182,15 @@ int main(int argc, char* argv[]) {
         double d_std = calculate_stddev(decode_times, d_avg);
         double d_tps = (tokens * 1000.0) / d_avg;
 
-        std::cout << "\nResults:" << std::endl;
-        std::cout << "  Prefill - Avg: " << std::fixed << std::setprecision(2) << p_avg
+        std::cerr << "\nResults:" << std::endl;
+        std::cerr << "  Prefill - Avg: " << std::fixed << std::setprecision(2) << p_avg
                   << " ms, StdDev: " << p_std << " ms, Throughput: " << p_tps << " tok/s" << std::endl;
-        std::cout << "  Decode  - Avg: " << d_avg
+        std::cerr << "  Decode  - Avg: " << d_avg
                   << " ms, StdDev: " << d_std << " ms, Throughput: " << d_tps << " tok/s" << std::endl;
+
+        double d_stdev_tps = (tokens * 1000.0 * d_std) / (d_avg * d_avg);
+        std::cout << "avg_ts: " << std::fixed << std::setprecision(2) << d_tps << std::endl;
+        std::cout << "stddev_ts: " << d_stdev_tps << std::endl;
     }
 
     return 0;
