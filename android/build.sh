@@ -4,6 +4,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 ANDROID_DIR="$PROJECT_ROOT/android"
 
+UPLOAD=false
+for arg in "$@"; do
+    case $arg in
+        --upload)
+            UPLOAD=true
+            ;;
+    esac
+done
+
 ANDROID_PLATFORM=${ANDROID_PLATFORM:-android-21}
 CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
 BUILD_DIR="$ANDROID_DIR/build"
@@ -64,3 +73,23 @@ echo "Build complete!"
 echo "Shared library location: $ANDROID_DIR/libcactus.so"
 echo "Static library location: $ANDROID_DIR/libcactus.a"
 echo "Benchmark executable location: $ANDROID_DIR/cactus-bench"
+
+# Package and upload cactus-bench to S3
+if [ "$UPLOAD" = true ]; then
+    if [ -f "$ANDROID_DIR/cactus-bench" ]; then
+        GIT_HASH=$(git -C "$PROJECT_ROOT" rev-parse --short HEAD)
+        ZIP_NAME="cactus-bench-android-${GIT_HASH}.zip"
+        ZIP_PATH="$ANDROID_DIR/$ZIP_NAME"
+
+        echo "Packaging cactus-bench..."
+        (cd "$ANDROID_DIR" && zip -j "$ZIP_NAME" cactus-bench)
+
+        echo "Uploading $ZIP_NAME to s3://liquid-eb-resources..."
+        aws s3 cp "$ZIP_PATH" "s3://liquid-eb-resources/$ZIP_NAME" --profile dev
+
+        echo "Upload complete: s3://liquid-eb-resources/$ZIP_NAME"
+    else
+        echo "Error: cactus-bench not found, cannot upload"
+        exit 1
+    fi
+fi
