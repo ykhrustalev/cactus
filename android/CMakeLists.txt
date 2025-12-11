@@ -139,9 +139,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 add_executable(
     cactus-bench
     ${CMAKE_SOURCE_DIR}/../cli/bench.cpp
+    ${CMAKE_SOURCE_DIR}/../tests/test_utils.cpp
 )
 
-target_include_directories(cactus-bench PRIVATE ${COMMON_INCLUDE_DIRS})
+target_include_directories(cactus-bench PRIVATE ${COMMON_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/../tests)
 
 target_link_libraries(cactus-bench cactus_static ${LOG_LIB} android)
 

@@ -1,4 +1,5 @@
 #include "../cactus/cactus.h"
+#include "../tests/test_utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -111,6 +112,9 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // Measure baseline memory
+    size_t mem_baseline = EngineTestUtils::get_memory_footprint_bytes();
+
     // Load model
     std::cerr << "Loading model..." << std::endl;
     auto model = create_model(model_path);
@@ -124,6 +128,10 @@ int main(int argc, char* argv[]) {
         std::cerr << "Error: Failed to get tokenizer" << std::endl;
         return 1;
     }
+
+    size_t mem_after_load = EngineTestUtils::get_memory_footprint_bytes();
+    double mem_model_mb = (mem_after_load - mem_baseline) / (1024.0 * 1024.0);
+    std::cerr << "Memory after load: " << std::fixed << std::setprecision(2) << mem_model_mb << " MB" << std::endl;
 
     std::cerr << "Model: " << model_path << std::endl;
     std::cerr << "Action: " << action << std::endl;
@@ -152,8 +160,13 @@ int main(int argc, char* argv[]) {
         std::cerr << "  Throughput: " << tps << " tok/s" << std::endl;
 
         double stdev_tps = (tokens * 1000.0 * stdev) / (avg * avg);
+        size_t mem_peak = EngineTestUtils::get_memory_footprint_bytes();
+        double mem_peak_mb = (mem_peak - mem_baseline) / (1024.0 * 1024.0);
+        std::cerr << "  Peak memory: " << mem_peak_mb << " MB" << std::endl;
+
         std::cout << "avg_ts: " << std::fixed << std::setprecision(2) << tps << std::endl;
         std::cout << "stddev_ts: " << stdev_tps << std::endl;
+        std::cout << "mem_mb: " << mem_peak_mb << std::endl;
 
     } else { // decode
         std::cerr << "Offset: " << offset << " tokens" << std::endl;
@@ -188,8 +201,13 @@ int main(int argc, char* argv[]) {
                   << " ms, StdDev: " << d_std << " ms, Throughput: " << d_tps << " tok/s" << std::endl;
 
         double d_stdev_tps = (tokens * 1000.0 * d_std) / (d_avg * d_avg);
+        size_t mem_peak = EngineTestUtils::get_memory_footprint_bytes();
+        double mem_peak_mb = (mem_peak - mem_baseline) / (1024.0 * 1024.0);
+        std::cerr << "  Peak memory: " << mem_peak_mb << " MB" << std::endl;
+
         std::cout << "avg_ts: " << std::fixed << std::setprecision(2) << d_tps << std::endl;
         std::cout << "stddev_ts: " << d_stdev_tps << std::endl;
+        std::cout << "mem_mb: " << mem_peak_mb << std::endl;
     }
 
     return 0;
