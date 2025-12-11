@@ -31,20 +31,19 @@ double measure_prefill(Model* model, const std::vector<uint32_t>& tokens) {
 // Measure decode time (returns prefill_ms, decode_ms)
 std::pair<double, double> measure_decode(Model* model, uint32_t eos_token,
                                          const std::vector<uint32_t>& tokens, size_t decode_count) {
+    (void)eos_token;  // Unused
     model->reset_cache();
 
-    // Prefill
+    // Prefill - returns the first predicted token
     auto t1 = std::chrono::high_resolution_clock::now();
-    model->generate(tokens, -1.0f, -1.0f, 0, "", true);
+    uint32_t last_token = model->generate(tokens, -1.0f, -1.0f, 0, "", true);
     auto t2 = std::chrono::high_resolution_clock::now();
     double prefill_ms = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() / 1000.0;
 
-    // Decode
+    // Decode - generate subsequent tokens
     auto t3 = std::chrono::high_resolution_clock::now();
-    uint32_t last_token = 0;
     for (size_t i = 0; i < decode_count; i++) {
-        last_token = (i == 0) ? model->generate({}, -1.0f, -1.0f, 0, "", false)
-                              : model->generate({last_token}, -1.0f, -1.0f, 0, "", false);
+        last_token = model->generate({last_token}, -1.0f, -1.0f, 0, "", false);
     }
     auto t4 = std::chrono::high_resolution_clock::now();
     double decode_ms = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count() / 1000.0;
